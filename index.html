@@ -52,6 +52,7 @@
         
         .form-group {
             margin-bottom: 20px;
+            position: relative;
         }
         
         label {
@@ -61,7 +62,7 @@
             color: #333;
         }
         
-        select, input {
+        input {
             width: 100%;
             padding: 12px;
             border: 2px solid #e0e0e0;
@@ -69,9 +70,53 @@
             font-size: 1em;
         }
         
-        select:focus, input:focus {
+        input:focus {
             outline: none;
             border-color: #667eea;
+        }
+        
+        /* Autocomplete Styles */
+        .search-container {
+            position: relative;
+        }
+        
+        .suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 2px solid #667eea;
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
+            z-index: 1000;
+        }
+        
+        .suggestions.active {
+            display: block;
+        }
+        
+        .suggestion {
+            padding: 12px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .suggestion:hover, .suggestion.selected {
+            background: #f5f7ff;
+        }
+        
+        .suggestion.highlighted {
+            background: #eef1ff;
+        }
+        
+        .no-results {
+            padding: 12px;
+            color: #999;
+            font-style: italic;
         }
         
         .btn {
@@ -89,6 +134,12 @@
         
         .btn:hover {
             transform: translateY(-2px);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
         }
         
         .dashboard {
@@ -258,47 +309,104 @@
             margin-bottom: 20px;
         }
         
-        #uploadSection {
+        .loading {
+            text-align: center;
+            padding: 50px;
             background: white;
             border-radius: 15px;
-            padding: 30px;
-            margin-bottom: 20px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            margin: 50px auto;
+            max-width: 400px;
         }
         
-        .upload-area {
-            border: 3px dashed #667eea;
-            border-radius: 10px;
-            padding: 40px;
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px auto;
+            max-width: 600px;
             text-align: center;
-            background: #f8f9ff;
-            cursor: pointer;
-            transition: all 0.3s;
         }
         
-        .upload-area:hover {
-            background: #eef1ff;
+        .search-hint {
+            color: #666;
+            font-size: 0.85em;
+            margin-top: 5px;
+            font-style: italic;
         }
         
-        .upload-area.dragover {
-            background: #e0e6ff;
-            border-color: #4c63d2;
+        .table-search {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .table-search input {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+        }
+        
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .month-chart {
+                height: 200px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
+        <!-- Loading State -->
+        <div id="loadingSection" class="loading">
+            <div class="spinner"></div>
+            <h3>Loading Dashboard...</h3>
+            <p style="color: #666;">Fetching data from server</p>
+        </div>
+        
+        <!-- Error State -->
+        <div id="errorSection" class="error" style="display: none;">
+            <h3>⚠️ Error Loading Data</h3>
+            <p id="errorMessage"></p>
+            <button class="btn" onclick="location.reload()" style="max-width: 200px; margin: 20px auto;">Reload Page</button>
+        </div>
+        
         <!-- Login Section -->
-        <div id="loginSection">
+        <div id="loginSection" style="display: none;">
             <div class="login-form">
                 <h2 style="margin-bottom: 30px; text-align: center; color: #333;">🏆 Athlete Royalty Portal</h2>
                 
                 <div class="form-group">
-                    <label for="athleteSelect">Select Your Name</label>
-                    <select id="athleteSelect">
-                        <option value="">Choose athlete...</option>
-                        <option value="ALL">VIEW ALL (Admin)</option>
-                    </select>
+                    <label for="athleteSearch">Enter Your Name</label>
+                    <div class="search-container">
+                        <input 
+                            type="text" 
+                            id="athleteSearch" 
+                            placeholder="Start typing your name..."
+                            autocomplete="off"
+                        >
+                        <div id="suggestions" class="suggestions"></div>
+                    </div>
+                    <div class="search-hint">Type at least 2 letters to see suggestions</div>
                 </div>
                 
                 <div class="form-group">
@@ -306,23 +414,11 @@
                     <input type="password" id="accessCode" placeholder="Enter your code">
                 </div>
                 
-                <button class="btn" onclick="login()">Access Dashboard</button>
+                <button id="loginBtn" class="btn" onclick="login()" disabled>Login to Dashboard</button>
                 
-                <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
-                    <strong>First Time?</strong><br>
-                    <small>Upload your processed CSV file to populate athlete names and data.</small>
+                <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; text-align: center;">
+                    <small style="color: #666;">Don't have an access code? Contact your administrator.</small>
                 </div>
-            </div>
-        </div>
-        
-        <!-- Upload Section (for initial data) -->
-        <div id="uploadSection" style="display: none;">
-            <h2 class="section-title">📥 Load Your Data</h2>
-            <div class="upload-area" id="csvUpload">
-                <div style="font-size: 3em; margin-bottom: 10px;">📁</div>
-                <h3>Drop your processed CSV here</h3>
-                <p>or click to browse</p>
-                <input type="file" id="fileInput" accept=".csv" style="display: none;">
             </div>
         </div>
         
@@ -370,21 +466,33 @@
             </div>
             
             <div class="data-section">
-                <h2 class="section-title">📋 Recent Orders</h2>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Order #</th>
-                            <th>Product</th>
-                            <th>Date</th>
-                            <th>Discount</th>
-                            <th>Royalty</th>
-                        </tr>
-                    </thead>
-                    <tbody id="ordersTable">
-                        <tr><td colspan="5">No data loaded</td></tr>
-                    </tbody>
-                </table>
+                <h2 class="section-title">📋 Order History</h2>
+                
+                <div class="table-search">
+                    <input 
+                        type="text" 
+                        id="tableSearch" 
+                        placeholder="Search orders..."
+                        onkeyup="filterTable()"
+                    >
+                </div>
+                
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Order #</th>
+                                <th>Product</th>
+                                <th>Date</th>
+                                <th>Discount</th>
+                                <th>Royalty</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ordersTable">
+                            <tr><td colspan="5">No data loaded</td></tr>
+                        </tbody>
+                    </table>
+                </div>
                 
                 <button class="export-btn" onclick="exportData()">📥 Export My Data</button>
             </div>
@@ -392,73 +500,76 @@
     </div>
     
     <script>
-        // Data storage
+        // Global variables
         let allData = [];
         let athleteData = {};
+        let accessCodes = {};
         let currentAthlete = '';
+        let selectedSuggestionIndex = -1;
+        let athletesList = [];
         
-        // Access codes (update these)
-        const accessCodes = {
-            'Franklin Boxing': 'FB2024',
-            'Trench': 'TR2024',
-            'Golden Hulk': 'GH2024',
-            'Lexi Kilfoyl': 'LK2024',
-            'ALL': 'ADMIN2024'
+        // Configuration
+        const CONFIG = {
+            dataUrl: 'royalty_data.csv',  // CSV file in same repo
+            codesUrl: 'access_codes.json' // JSON file in same repo
         };
         
-        // Setup upload
-        const uploadArea = document.getElementById('csvUpload');
-        const fileInput = document.getElementById('fileInput');
-        
-        if (uploadArea) {
-            uploadArea.addEventListener('click', () => fileInput.click());
-            uploadArea.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                uploadArea.classList.add('dragover');
-            });
-            uploadArea.addEventListener('dragleave', () => {
-                uploadArea.classList.remove('dragover');
-            });
-            uploadArea.addEventListener('drop', (e) => {
-                e.preventDefault();
-                uploadArea.classList.remove('dragover');
-                const file = e.dataTransfer.files[0];
-                if (file && file.name.endsWith('.csv')) {
-                    loadCSV(file);
-                }
-            });
-        }
-        
-        if (fileInput) {
-            fileInput.addEventListener('change', (e) => {
-                const file = e.target.files[0];
-                if (file) loadCSV(file);
-            });
-        }
-        
-        // Check for stored data on load
-        window.onload = function() {
-            const stored = localStorage.getItem('royaltyData');
-            if (stored) {
-                allData = JSON.parse(stored);
+        // Initialize on page load
+        window.onload = async function() {
+            try {
+                showLoading(true);
+                
+                // Load access codes
+                await loadAccessCodes();
+                
+                // Load CSV data
+                await loadCSVData();
+                
+                // Process the data
                 processData();
-                document.getElementById('uploadSection').style.display = 'none';
-            } else {
-                document.getElementById('uploadSection').style.display = 'block';
+                
+                showLoading(false);
+                showLogin();
+                
+                // Setup search functionality
+                setupSearch();
+                
+            } catch (error) {
+                showError(`Failed to load data: ${error.message}`);
             }
         };
         
-        function loadCSV(file) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const csv = e.target.result;
-                const lines = csv.split('\n');
-                const headers = lines[0].split(',').map(h => h.trim());
+        async function loadAccessCodes() {
+            try {
+                const response = await fetch(CONFIG.codesUrl);
+                if (!response.ok) throw new Error('Failed to load access codes');
+                accessCodes = await response.json();
+                console.log('Access codes loaded successfully');
+            } catch (error) {
+                console.error('Error loading access codes:', error);
+                // Fallback to embedded codes if file not found
+                accessCodes = {
+                    'Demo Athlete': 'DEMO123',
+                    'Admin': 'ADMIN2024'
+                };
+            }
+        }
+        
+        async function loadCSVData() {
+            try {
+                const response = await fetch(CONFIG.dataUrl);
+                if (!response.ok) throw new Error('Failed to load CSV data');
+                const csvText = await response.text();
+                
+                // Parse CSV
+                const lines = csvText.split('\n');
+                const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
                 
                 allData = [];
                 for (let i = 1; i < lines.length; i++) {
                     if (!lines[i].trim()) continue;
-                    const values = lines[i].split(',');
+                    
+                    const values = parseCSVLine(lines[i]);
                     const row = {};
                     headers.forEach((header, idx) => {
                         row[header] = values[idx] ? values[idx].trim().replace(/"/g, '') : '';
@@ -466,74 +577,219 @@
                     allData.push(row);
                 }
                 
-                // Store in localStorage
-                localStorage.setItem('royaltyData', JSON.stringify(allData));
+                console.log(`Loaded ${allData.length} records`);
+            } catch (error) {
+                console.error('Error loading CSV data:', error);
+                throw error;
+            }
+        }
+        
+        function parseCSVLine(line) {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
                 
-                processData();
-                document.getElementById('uploadSection').style.display = 'none';
-                alert('Data loaded successfully!');
-            };
-            reader.readAsText(file);
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    result.push(current);
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            
+            if (current) {
+                result.push(current);
+            }
+            
+            return result;
         }
         
         function processData() {
             // Group by athlete
             athleteData = {};
-            const athletes = new Set();
+            const athleteSet = new Set();
             
             allData.forEach(row => {
                 const athlete = row.athlete_name || 'Unknown';
-                athletes.add(athlete);
-                
-                if (!athleteData[athlete]) {
-                    athleteData[athlete] = [];
+                if (athlete !== 'Unknown') {
+                    athleteSet.add(athlete);
+                    
+                    if (!athleteData[athlete]) {
+                        athleteData[athlete] = [];
+                    }
+                    athleteData[athlete].push(row);
                 }
-                athleteData[athlete].push(row);
             });
             
-            // Populate athlete dropdown
-            const select = document.getElementById('athleteSelect');
-            select.innerHTML = '<option value="">Choose athlete...</option>';
-            select.innerHTML += '<option value="ALL">VIEW ALL (Admin)</option>';
+            // Create sorted list of athletes
+            athletesList = Array.from(athleteSet).sort();
             
-            Array.from(athletes).sort().forEach(athlete => {
-                if (athlete !== 'Unknown') {
-                    select.innerHTML += `<option value="${athlete}">${athlete}</option>`;
-                    // Add access code if not exists
-                    if (!accessCodes[athlete]) {
-                        accessCodes[athlete] = athlete.substring(0, 2).toUpperCase() + '2024';
+            // Add Admin option if it exists in access codes
+            if (accessCodes['Admin'] || accessCodes['ALL']) {
+                athletesList.unshift('Admin (View All)');
+            }
+        }
+        
+        function setupSearch() {
+            const searchInput = document.getElementById('athleteSearch');
+            const suggestionsDiv = document.getElementById('suggestions');
+            
+            searchInput.addEventListener('input', function() {
+                const query = this.value.toLowerCase().trim();
+                
+                if (query.length < 2) {
+                    suggestionsDiv.classList.remove('active');
+                    suggestionsDiv.innerHTML = '';
+                    selectedSuggestionIndex = -1;
+                    updateLoginButton();
+                    return;
+                }
+                
+                // Filter athletes based on query
+                const matches = athletesList.filter(athlete => 
+                    athlete.toLowerCase().includes(query)
+                );
+                
+                // Display suggestions
+                if (matches.length > 0) {
+                    suggestionsDiv.innerHTML = matches.map((athlete, index) => 
+                        `<div class="suggestion" data-index="${index}" data-athlete="${athlete}">${athlete}</div>`
+                    ).join('');
+                    suggestionsDiv.classList.add('active');
+                } else {
+                    suggestionsDiv.innerHTML = '<div class="no-results">No athletes found</div>';
+                    suggestionsDiv.classList.add('active');
+                }
+                
+                selectedSuggestionIndex = -1;
+                updateLoginButton();
+            });
+            
+            // Handle keyboard navigation
+            searchInput.addEventListener('keydown', function(e) {
+                const suggestions = document.querySelectorAll('.suggestion');
+                
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    selectedSuggestionIndex = Math.min(selectedSuggestionIndex + 1, suggestions.length - 1);
+                    updateSuggestionHighlight(suggestions);
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    selectedSuggestionIndex = Math.max(selectedSuggestionIndex - 1, -1);
+                    updateSuggestionHighlight(suggestions);
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (selectedSuggestionIndex >= 0 && suggestions[selectedSuggestionIndex]) {
+                        selectAthlete(suggestions[selectedSuggestionIndex].dataset.athlete);
+                    } else if (document.getElementById('loginBtn').disabled === false) {
+                        login();
                     }
+                } else if (e.key === 'Escape') {
+                    suggestionsDiv.classList.remove('active');
+                    selectedSuggestionIndex = -1;
+                }
+            });
+            
+            // Handle click on suggestions
+            suggestionsDiv.addEventListener('click', function(e) {
+                if (e.target.classList.contains('suggestion')) {
+                    selectAthlete(e.target.dataset.athlete);
+                }
+            });
+            
+            // Hide suggestions when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!searchInput.contains(e.target) && !suggestionsDiv.contains(e.target)) {
+                    suggestionsDiv.classList.remove('active');
+                }
+            });
+            
+            // Enable/disable login button based on input
+            searchInput.addEventListener('blur', updateLoginButton);
+            document.getElementById('accessCode').addEventListener('input', updateLoginButton);
+        }
+        
+        function updateSuggestionHighlight(suggestions) {
+            suggestions.forEach((s, index) => {
+                if (index === selectedSuggestionIndex) {
+                    s.classList.add('highlighted');
+                } else {
+                    s.classList.remove('highlighted');
                 }
             });
         }
         
+        function selectAthlete(athleteName) {
+            document.getElementById('athleteSearch').value = athleteName;
+            document.getElementById('suggestions').classList.remove('active');
+            selectedSuggestionIndex = -1;
+            updateLoginButton();
+        }
+        
+        function updateLoginButton() {
+            const athleteName = document.getElementById('athleteSearch').value.trim();
+            const accessCode = document.getElementById('accessCode').value.trim();
+            const loginBtn = document.getElementById('loginBtn');
+            
+            // Check if athlete exists in our list
+            const athleteExists = athletesList.some(a => 
+                a.toLowerCase() === athleteName.toLowerCase()
+            );
+            
+            loginBtn.disabled = !(athleteName && accessCode && (athleteExists || athleteName.toLowerCase() === 'admin'));
+        }
+        
         function login() {
-            const athlete = document.getElementById('athleteSelect').value;
-            const code = document.getElementById('accessCode').value;
+            const athleteName = document.getElementById('athleteSearch').value.trim();
+            const code = document.getElementById('accessCode').value.trim();
             
-            if (!athlete) {
-                alert('Please select your name');
+            // Find exact match (case-insensitive)
+            let exactMatch = athletesList.find(a => 
+                a.toLowerCase() === athleteName.toLowerCase()
+            );
+            
+            if (!exactMatch && athleteName.toLowerCase() !== 'admin') {
+                alert('Athlete not found. Please select from the suggestions.');
                 return;
             }
             
-            if (!accessCodes[athlete] || accessCodes[athlete] !== code) {
-                alert('Invalid access code');
+            // Check for Admin access
+            const isAdmin = athleteName.toLowerCase() === 'admin' || 
+                           exactMatch === 'Admin (View All)';
+            
+            if (isAdmin) {
+                if (accessCodes['Admin'] === code || accessCodes['ALL'] === code) {
+                    currentAthlete = 'ALL';
+                    showDashboard('Admin');
+                    return;
+                }
+            }
+            
+            // Check regular athlete access
+            const athleteKey = exactMatch || athleteName;
+            if (!accessCodes[athleteKey] || accessCodes[athleteKey] !== code) {
+                alert('Invalid access code. Please try again.');
                 return;
             }
             
-            currentAthlete = athlete;
-            showDashboard(athlete);
+            currentAthlete = athleteKey;
+            showDashboard(athleteKey);
         }
         
         function showDashboard(athlete) {
             document.getElementById('loginSection').style.display = 'none';
-            document.getElementById('uploadSection').style.display = 'none';
             document.getElementById('dashboard').style.display = 'block';
             
-            document.getElementById('athleteName').textContent = athlete === 'ALL' ? 'Admin' : athlete;
+            document.getElementById('athleteName').textContent = 
+                athlete === 'Admin' ? 'Admin (All Athletes)' : athlete;
             
             // Get data for this athlete
-            const data = athlete === 'ALL' ? allData : (athleteData[athlete] || []);
+            const data = currentAthlete === 'ALL' ? allData : (athleteData[athlete] || []);
             
             // Calculate stats
             let totalRoyalties = 0;
@@ -565,7 +821,7 @@
             });
             
             // Update stats
-            document.getElementById('totalRoyalties').textContent = `$${totalRoyalties}`;
+            document.getElementById('totalRoyalties').textContent = `$${totalRoyalties.toFixed(0)}`;
             document.getElementById('totalOrders').textContent = data.length;
             document.getElementById('gameJerseys').textContent = gameJerseys;
             document.getElementById('otherItems').textContent = otherItems;
@@ -574,6 +830,8 @@
             if (jersey20Count > 0) {
                 document.getElementById('jersey20Alert').style.display = 'block';
                 document.getElementById('jersey20Count').textContent = `${jersey20Count}`;
+            } else {
+                document.getElementById('jersey20Alert').style.display = 'none';
             }
             
             // Create monthly chart
@@ -581,60 +839,121 @@
             chartDiv.innerHTML = '';
             
             const months = Object.keys(monthlyData).sort();
-            const maxValue = Math.max(...Object.values(monthlyData));
-            
-            months.forEach(month => {
-                const value = monthlyData[month];
-                const height = maxValue > 0 ? (value / maxValue) * 250 : 20;
+            if (months.length > 0) {
+                const maxValue = Math.max(...Object.values(monthlyData));
                 
-                const bar = document.createElement('div');
-                bar.className = 'bar';
-                bar.style.height = `${height}px`;
-                bar.innerHTML = `
-                    <div class="bar-value">$${value}</div>
-                    <div class="bar-label">${month}</div>
-                `;
-                chartDiv.appendChild(bar);
-            });
+                months.forEach(month => {
+                    const value = monthlyData[month];
+                    const height = maxValue > 0 ? (value / maxValue) * 250 : 20;
+                    
+                    const bar = document.createElement('div');
+                    bar.className = 'bar';
+                    bar.style.height = `${height}px`;
+                    bar.innerHTML = `
+                        <div class="bar-value">$${value.toFixed(0)}</div>
+                        <div class="bar-label">${month}</div>
+                    `;
+                    chartDiv.appendChild(bar);
+                });
+            }
             
             // Populate orders table
             const tbody = document.getElementById('ordersTable');
             tbody.innerHTML = '';
             
-            data.slice(-20).reverse().forEach(row => {
+            // Store data for table filtering
+            window.tableData = data.slice().reverse();
+            renderTable(window.tableData);
+        }
+        
+        function renderTable(data) {
+            const tbody = document.getElementById('ordersTable');
+            tbody.innerHTML = '';
+            
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5">No orders found</td></tr>';
+                return;
+            }
+            
+            data.forEach(row => {
                 const tr = document.createElement('tr');
+                const date = new Date(row.created_at);
+                const dateStr = date.toLocaleDateString();
+                
                 tr.innerHTML = `
                     <td>${row.order_number}</td>
-                    <td>${row.product_name}</td>
-                    <td>${new Date(row.created_at).toLocaleDateString()}</td>
-                    <td>${row.has_jersey20 === 'true' ? '<span class="badge badge-warning">JERSEY20</span>' : '-'}</td>
+                    <td>${row.product_name || row.lineitem_name}</td>
+                    <td>${dateStr}</td>
+                    <td>${row.has_jersey20 === 'true' || row.has_jersey20 === true ? 
+                        '<span class="badge badge-warning">JERSEY20</span>' : '-'}</td>
                     <td>$${row.final_royalty}</td>
                 `;
                 tbody.appendChild(tr);
             });
         }
         
+        function filterTable() {
+            const searchTerm = document.getElementById('tableSearch').value.toLowerCase();
+            
+            if (!searchTerm) {
+                renderTable(window.tableData);
+                return;
+            }
+            
+            const filtered = window.tableData.filter(row => {
+                return row.order_number.toLowerCase().includes(searchTerm) ||
+                       row.product_name.toLowerCase().includes(searchTerm) ||
+                       row.lineitem_name.toLowerCase().includes(searchTerm);
+            });
+            
+            renderTable(filtered);
+        }
+        
         function logout() {
             currentAthlete = '';
             document.getElementById('dashboard').style.display = 'none';
             document.getElementById('loginSection').style.display = 'block';
+            document.getElementById('athleteSearch').value = '';
             document.getElementById('accessCode').value = '';
+            document.getElementById('tableSearch').value = '';
+            document.getElementById('loginBtn').disabled = true;
         }
         
         function exportData() {
             const data = currentAthlete === 'ALL' ? allData : athleteData[currentAthlete];
             
-            let csv = 'Order Number,Product,Date,Discount,Royalty\n';
+            if (!data || data.length === 0) {
+                alert('No data to export');
+                return;
+            }
+            
+            let csv = 'Order Number,Product,Date,Discount,Has JERSEY20,Royalty\n';
             data.forEach(row => {
-                csv += `${row.order_number},"${row.product_name}",${row.created_at},${row.discount_code},${row.final_royalty}\n`;
+                const date = new Date(row.created_at).toLocaleDateString();
+                csv += `${row.order_number},"${row.product_name || row.lineitem_name}",${date},${row.discount_code},${row.has_jersey20},${row.final_royalty}\n`;
             });
             
             const blob = new Blob([csv], { type: 'text/csv' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `${currentAthlete}_royalties.csv`;
+            a.download = `${currentAthlete === 'ALL' ? 'all_athletes' : currentAthlete}_royalties.csv`;
             a.click();
+            window.URL.revokeObjectURL(url);
+        }
+        
+        function showLoading(show) {
+            document.getElementById('loadingSection').style.display = show ? 'block' : 'none';
+        }
+        
+        function showLogin() {
+            document.getElementById('loginSection').style.display = 'block';
+        }
+        
+        function showError(message) {
+            document.getElementById('loadingSection').style.display = 'none';
+            document.getElementById('errorSection').style.display = 'block';
+            document.getElementById('errorMessage').textContent = message;
         }
     </script>
 </body>
