@@ -428,7 +428,7 @@
                 <div class="stat-card">
                     <div class="stat-icon">📦</div>
                     <div class="stat-value" id="totalOrders">0</div>
-                    <div class="stat-label">Total Orders</div>
+                    <div class="stat-label">Total Items</div>
                 </div>
                 
                 <div class="stat-card">
@@ -695,8 +695,11 @@
             
             const isAdmin = exactMatch === 'Admin (View All)';
             
+            // Check if admin password is being used
+            const isUsingAdminPassword = accessCodes['Admin'] === code;
+            
             if (isAdmin) {
-                if (accessCodes['Admin'] === code) {
+                if (isUsingAdminPassword) {
                     currentAthlete = 'ALL';
                     showDashboard('Admin');
                     return;
@@ -706,6 +709,14 @@
                 }
             }
             
+            // Allow admin password to work for any athlete
+            if (isUsingAdminPassword) {
+                currentAthlete = exactMatch;
+                showDashboard(exactMatch);
+                return;
+            }
+            
+            // Check athlete's own password
             if (accessCodes[exactMatch] !== code) {
                 alert('Invalid access code. Please try again.');
                 return;
