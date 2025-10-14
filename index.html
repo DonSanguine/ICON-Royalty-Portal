@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Athlete Royalty Dashboard</title>
+    <title>ICON Royalty Dashboard</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
         * {
@@ -14,7 +14,7 @@
         
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #8a2be2 0%, #0b1215 100%);
             min-height: 100vh;
             padding: 20px;
         }
@@ -25,15 +25,15 @@
         }
         
         .header {
-            background: white;
+            background: #ffffff;
             border-radius: 15px;
             padding: 30px;
             margin-bottom: 30px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
         }
         
         h1 {
-            color: #333;
+            color: #0b1215;
             font-size: 2em;
             margin-bottom: 10px;
         }
@@ -43,12 +43,12 @@
         }
         
         .login-form {
-            background: white;
+            background: #ffffff;
             border-radius: 15px;
             padding: 40px;
             max-width: 400px;
             margin: 50px auto;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
         }
         
         .form-group {
@@ -60,7 +60,7 @@
             display: block;
             margin-bottom: 8px;
             font-weight: 600;
-            color: #333;
+            color: #0b1215;
         }
         
         input {
@@ -73,7 +73,7 @@
         
         input:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: #8a2be2;
         }
         
         .search-container {
@@ -86,7 +86,7 @@
             left: 0;
             right: 0;
             background: white;
-            border: 2px solid #667eea;
+            border: 2px solid #8a2be2;
             border-top: none;
             border-radius: 0 0 8px 8px;
             max-height: 200px;
@@ -106,7 +106,7 @@
         }
         
         .suggestion:hover, .suggestion.highlighted {
-            background: #eef1ff;
+            background: rgba(138, 43, 226, 0.1);
         }
         
         .no-results {
@@ -118,7 +118,7 @@
         .btn {
             width: 100%;
             padding: 14px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #8a2be2 0%, #0b1215 100%);
             color: white;
             border: none;
             border-radius: 8px;
@@ -149,15 +149,17 @@
         }
         
         .stat-card {
-            background: white;
+            background: #ffffff;
             border-radius: 15px;
             padding: 25px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
             transition: transform 0.2s;
+            border: 2px solid transparent;
         }
         
         .stat-card:hover {
             transform: translateY(-5px);
+            border-color: #8a2be2;
         }
         
         .stat-icon {
@@ -168,7 +170,7 @@
         .stat-value {
             font-size: 2.5em;
             font-weight: bold;
-            color: #667eea;
+            color: #8a2be2;
             margin-bottom: 5px;
         }
         
@@ -178,19 +180,19 @@
         }
         
         .data-section {
-            background: white;
+            background: #ffffff;
             border-radius: 15px;
             padding: 30px;
             margin-bottom: 20px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
         }
         
         .section-title {
             font-size: 1.5em;
-            color: #333;
+            color: #0b1215;
             margin-bottom: 20px;
             padding-bottom: 10px;
-            border-bottom: 3px solid #667eea;
+            border-bottom: 3px solid #8a2be2;
         }
         
         table {
@@ -203,7 +205,7 @@
             padding: 12px;
             text-align: left;
             font-weight: 600;
-            color: #333;
+            color: #0b1215;
             border-bottom: 2px solid #e0e0e0;
         }
         
@@ -213,7 +215,7 @@
         }
         
         tr:hover {
-            background: #f8f9fa;
+            background: rgba(138, 43, 226, 0.05);
         }
         
         .badge {
@@ -230,7 +232,7 @@
         }
         
         .export-btn {
-            background: linear-gradient(135deg, #56ab2f 0%, #a8e063 100%);
+            background: linear-gradient(135deg, #8a2be2 0%, #0b1215 100%);
             color: white;
             padding: 12px 30px;
             border: none;
@@ -238,6 +240,7 @@
             font-weight: 600;
             cursor: pointer;
             margin-top: 20px;
+            transition: transform 0.2s;
         }
         
         .export-btn:hover {
@@ -252,6 +255,11 @@
             border-radius: 8px;
             cursor: pointer;
             float: right;
+            transition: transform 0.2s;
+        }
+        
+        .logout-btn:hover {
+            transform: translateY(-2px);
         }
         
         .month-chart {
@@ -263,7 +271,7 @@
         }
         
         .bar {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #8a2be2 0%, #0b1215 100%);
             border-radius: 5px 5px 0 0;
             flex: 1;
             margin: 0 5px;
@@ -310,11 +318,12 @@
             border-radius: 15px;
             margin: 50px auto;
             max-width: 400px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
         }
         
         .spinner {
             border: 4px solid #f3f3f3;
-            border-top: 4px solid #667eea;
+            border-top: 4px solid #8a2be2;
             border-radius: 50%;
             width: 50px;
             height: 50px;
@@ -335,6 +344,7 @@
             margin: 20px auto;
             max-width: 600px;
             text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
         }
         
         .search-hint {
@@ -353,6 +363,10 @@
             padding: 10px;
             border: 2px solid #e0e0e0;
             border-radius: 8px;
+        }
+        
+        .table-search input:focus {
+            border-color: #8a2be2;
         }
         
         @media (max-width: 768px) {
@@ -382,7 +396,7 @@
         
         <div id="loginSection" style="display: none;">
             <div class="login-form">
-                <h2 style="margin-bottom: 30px; text-align: center; color: #333;">🏆 Athlete Royalty Portal</h2>
+                <h2 style="margin-bottom: 30px; text-align: center; color: #0b1215;">🏆 ICON Royalty Portal</h2>
                 
                 <div class="form-group">
                     <label for="athleteSearch">Enter Your Name</label>
@@ -400,7 +414,7 @@
                 
                 <div class="form-group">
                     <label for="accessCode">Access Code</label>
-                    <input type="password" id="accessCode" placeholder="Enter your code">
+                    <input type="text" id="accessCode" placeholder="Enter your code">
                 </div>
                 
                 <button id="loginBtn" class="btn" onclick="login()" disabled>Login to Dashboard</button>
@@ -520,7 +534,7 @@
                 const response = await fetch(CONFIG.codesUrl);
                 if (!response.ok) throw new Error('Failed to load access codes');
                 accessCodes = await response.json();
-                console.log('Access codes loaded:', Object.keys(accessCodes).length, 'athletes');
+                console.log('Access codes loaded:', Object.keys(accessCodes).length, 'icons');
             } catch (error) {
                 console.error('Error loading access codes:', error);
                 throw error;
@@ -579,7 +593,7 @@
                 athletesList.unshift('Admin (View All)');
             }
             
-            console.log('Athletes found:', athletesList.length);
+            console.log('Icons found:', athletesList.length);
         }
         
         function setupSearch() {
@@ -607,7 +621,7 @@
                     ).join('');
                     suggestionsDiv.classList.add('active');
                 } else {
-                    suggestionsDiv.innerHTML = '<div class="no-results">No athletes found</div>';
+                    suggestionsDiv.innerHTML = '<div class="no-results">No icons found</div>';
                     suggestionsDiv.classList.add('active');
                 }
                 
@@ -689,14 +703,14 @@
             );
             
             if (!exactMatch) {
-                alert('Athlete not found. Please select from the suggestions.');
+                alert('ICON not found. Please select from the suggestions.');
                 return;
             }
             
             const isAdmin = exactMatch === 'Admin (View All)';
+            const ADMIN_PASSWORD = 'ADMIN2024';
             
-            // Check if admin password is being used
-            const isUsingAdminPassword = accessCodes['Admin'] === code;
+            const isUsingAdminPassword = code === ADMIN_PASSWORD;
             
             if (isAdmin) {
                 if (isUsingAdminPassword) {
@@ -709,14 +723,12 @@
                 }
             }
             
-            // Allow admin password to work for any athlete
             if (isUsingAdminPassword) {
                 currentAthlete = exactMatch;
                 showDashboard(exactMatch);
                 return;
             }
             
-            // Check athlete's own password
             if (accessCodes[exactMatch] !== code) {
                 alert('Invalid access code. Please try again.');
                 return;
@@ -731,7 +743,7 @@
             document.getElementById('dashboard').style.display = 'block';
             
             document.getElementById('athleteName').textContent = 
-                athlete === 'Admin' ? 'Admin (All Athletes)' : athlete;
+                athlete === 'Admin' ? 'Admin (All Icons)' : athlete;
             
             const data = currentAthlete === 'ALL' ? allData : (athleteData[athlete] || []);
             
@@ -888,7 +900,7 @@
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `${currentAthlete === 'ALL' ? 'all_athletes' : currentAthlete}_royalties.csv`;
+            a.download = `${currentAthlete === 'ALL' ? 'all_icons' : currentAthlete}_royalties.csv`;
             a.click();
             window.URL.revokeObjectURL(url);
         }
