@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Athlete Royalty Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -75,7 +76,6 @@
             border-color: #667eea;
         }
         
-        /* Autocomplete Styles */
         .search-container {
             position: relative;
         }
@@ -105,11 +105,7 @@
             transition: background 0.2s;
         }
         
-        .suggestion:hover, .suggestion.selected {
-            background: #f5f7ff;
-        }
-        
-        .suggestion.highlighted {
+        .suggestion:hover, .suggestion.highlighted {
             background: #eef1ff;
         }
         
@@ -132,14 +128,13 @@
             transition: transform 0.2s;
         }
         
-        .btn:hover {
+        .btn:hover:not(:disabled) {
             transform: translateY(-2px);
         }
         
         .btn:disabled {
             opacity: 0.5;
             cursor: not-allowed;
-            transform: none;
         }
         
         .dashboard {
@@ -234,11 +229,6 @@
             color: #856404;
         }
         
-        .badge-success {
-            background: #d4edda;
-            color: #155724;
-        }
-        
         .export-btn {
             background: linear-gradient(135deg, #56ab2f 0%, #a8e063 100%);
             color: white;
@@ -248,6 +238,10 @@
             font-weight: 600;
             cursor: pointer;
             margin-top: 20px;
+        }
+        
+        .export-btn:hover {
+            transform: translateY(-2px);
         }
         
         .logout-btn {
@@ -336,7 +330,7 @@
         .error {
             background: #f8d7da;
             color: #721c24;
-            padding: 15px;
+            padding: 20px;
             border-radius: 8px;
             margin: 20px auto;
             max-width: 600px;
@@ -352,12 +346,10 @@
         
         .table-search {
             margin-bottom: 20px;
-            display: flex;
-            gap: 10px;
         }
         
         .table-search input {
-            flex: 1;
+            width: 100%;
             padding: 10px;
             border: 2px solid #e0e0e0;
             border-radius: 8px;
@@ -376,21 +368,18 @@
 </head>
 <body>
     <div class="container">
-        <!-- Loading State -->
         <div id="loadingSection" class="loading">
             <div class="spinner"></div>
             <h3>Loading Dashboard...</h3>
             <p style="color: #666;">Fetching data from server</p>
         </div>
         
-        <!-- Error State -->
         <div id="errorSection" class="error" style="display: none;">
             <h3>⚠️ Error Loading Data</h3>
             <p id="errorMessage"></p>
             <button class="btn" onclick="location.reload()" style="max-width: 200px; margin: 20px auto;">Reload Page</button>
         </div>
         
-        <!-- Login Section -->
         <div id="loginSection" style="display: none;">
             <div class="login-form">
                 <h2 style="margin-bottom: 30px; text-align: center; color: #333;">🏆 Athlete Royalty Portal</h2>
@@ -422,7 +411,6 @@
             </div>
         </div>
         
-        <!-- Dashboard Section -->
         <div id="dashboard" class="dashboard">
             <div class="header">
                 <button class="logout-btn" onclick="logout()">Logout</button>
@@ -500,7 +488,6 @@
     </div>
     
     <script>
-        // Global variables
         let allData = [];
         let athleteData = {};
         let accessCodes = {};
@@ -508,33 +495,22 @@
         let selectedSuggestionIndex = -1;
         let athletesList = [];
         
-        // Configuration
         const CONFIG = {
-            dataUrl: 'royalty_data.csv',  // CSV file in same repo
-            codesUrl: 'access_codes.json' // JSON file in same repo
+            dataUrl: 'royalty_data.csv',
+            codesUrl: 'access_codes.json'
         };
         
-        // Initialize on page load
         window.onload = async function() {
             try {
                 showLoading(true);
-                
-                // Load access codes
                 await loadAccessCodes();
-                
-                // Load CSV data
                 await loadCSVData();
-                
-                // Process the data
                 processData();
-                
                 showLoading(false);
                 showLogin();
-                
-                // Setup search functionality
                 setupSearch();
-                
             } catch (error) {
+                console.error('Initialization error:', error);
                 showError(`Failed to load data: ${error.message}`);
             }
         };
@@ -544,14 +520,10 @@
                 const response = await fetch(CONFIG.codesUrl);
                 if (!response.ok) throw new Error('Failed to load access codes');
                 accessCodes = await response.json();
-                console.log('Access codes loaded successfully');
+                console.log('Access codes loaded:', Object.keys(accessCodes).length, 'athletes');
             } catch (error) {
                 console.error('Error loading access codes:', error);
-                // Fallback to embedded codes if file not found
-                accessCodes = {
-                    'Demo Athlete': 'DEMO123',
-                    'Admin': 'ADMIN2024'
-                };
+                throw error;
             }
         }
         
@@ -561,64 +533,39 @@
                 if (!response.ok) throw new Error('Failed to load CSV data');
                 const csvText = await response.text();
                 
-                // Parse CSV
-                const lines = csvText.split('\n');
-                const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
-                
-                allData = [];
-                for (let i = 1; i < lines.length; i++) {
-                    if (!lines[i].trim()) continue;
-                    
-                    const values = parseCSVLine(lines[i]);
-                    const row = {};
-                    headers.forEach((header, idx) => {
-                        row[header] = values[idx] ? values[idx].trim().replace(/"/g, '') : '';
+                return new Promise((resolve, reject) => {
+                    Papa.parse(csvText, {
+                        header: true,
+                        dynamicTyping: true,
+                        skipEmptyLines: true,
+                        transformHeader: (header) => header.trim(),
+                        complete: (results) => {
+                            if (results.errors.length > 0) {
+                                console.warn('CSV parsing warnings:', results.errors);
+                            }
+                            allData = results.data.filter(row => row.athlete_name);
+                            console.log(`Loaded ${allData.length} records`);
+                            resolve();
+                        },
+                        error: (error) => {
+                            reject(new Error(`CSV parsing failed: ${error.message}`));
+                        }
                     });
-                    allData.push(row);
-                }
-                
-                console.log(`Loaded ${allData.length} records`);
+                });
             } catch (error) {
-                console.error('Error loading CSV data:', error);
+                console.error('Error loading CSV:', error);
                 throw error;
             }
         }
         
-        function parseCSVLine(line) {
-            const result = [];
-            let current = '';
-            let inQuotes = false;
-            
-            for (let i = 0; i < line.length; i++) {
-                const char = line[i];
-                
-                if (char === '"') {
-                    inQuotes = !inQuotes;
-                } else if (char === ',' && !inQuotes) {
-                    result.push(current);
-                    current = '';
-                } else {
-                    current += char;
-                }
-            }
-            
-            if (current) {
-                result.push(current);
-            }
-            
-            return result;
-        }
-        
         function processData() {
-            // Group by athlete
             athleteData = {};
             const athleteSet = new Set();
             
             allData.forEach(row => {
-                const athlete = row.athlete_name || 'Unknown';
-                if (athlete !== 'Unknown') {
+                const athlete = row.athlete_name;
+                if (athlete) {
                     athleteSet.add(athlete);
-                    
                     if (!athleteData[athlete]) {
                         athleteData[athlete] = [];
                     }
@@ -626,13 +573,13 @@
                 }
             });
             
-            // Create sorted list of athletes
             athletesList = Array.from(athleteSet).sort();
             
-            // Add Admin option if it exists in access codes
-            if (accessCodes['Admin'] || accessCodes['ALL']) {
+            if (accessCodes['Admin']) {
                 athletesList.unshift('Admin (View All)');
             }
+            
+            console.log('Athletes found:', athletesList.length);
         }
         
         function setupSearch() {
@@ -650,12 +597,10 @@
                     return;
                 }
                 
-                // Filter athletes based on query
                 const matches = athletesList.filter(athlete => 
                     athlete.toLowerCase().includes(query)
                 );
                 
-                // Display suggestions
                 if (matches.length > 0) {
                     suggestionsDiv.innerHTML = matches.map((athlete, index) => 
                         `<div class="suggestion" data-index="${index}" data-athlete="${athlete}">${athlete}</div>`
@@ -670,7 +615,6 @@
                 updateLoginButton();
             });
             
-            // Handle keyboard navigation
             searchInput.addEventListener('keydown', function(e) {
                 const suggestions = document.querySelectorAll('.suggestion');
                 
@@ -686,7 +630,7 @@
                     e.preventDefault();
                     if (selectedSuggestionIndex >= 0 && suggestions[selectedSuggestionIndex]) {
                         selectAthlete(suggestions[selectedSuggestionIndex].dataset.athlete);
-                    } else if (document.getElementById('loginBtn').disabled === false) {
+                    } else if (!document.getElementById('loginBtn').disabled) {
                         login();
                     }
                 } else if (e.key === 'Escape') {
@@ -695,32 +639,24 @@
                 }
             });
             
-            // Handle click on suggestions
             suggestionsDiv.addEventListener('click', function(e) {
                 if (e.target.classList.contains('suggestion')) {
                     selectAthlete(e.target.dataset.athlete);
                 }
             });
             
-            // Hide suggestions when clicking outside
             document.addEventListener('click', function(e) {
                 if (!searchInput.contains(e.target) && !suggestionsDiv.contains(e.target)) {
                     suggestionsDiv.classList.remove('active');
                 }
             });
             
-            // Enable/disable login button based on input
-            searchInput.addEventListener('blur', updateLoginButton);
             document.getElementById('accessCode').addEventListener('input', updateLoginButton);
         }
         
         function updateSuggestionHighlight(suggestions) {
             suggestions.forEach((s, index) => {
-                if (index === selectedSuggestionIndex) {
-                    s.classList.add('highlighted');
-                } else {
-                    s.classList.remove('highlighted');
-                }
+                s.classList.toggle('highlighted', index === selectedSuggestionIndex);
             });
         }
         
@@ -729,6 +665,7 @@
             document.getElementById('suggestions').classList.remove('active');
             selectedSuggestionIndex = -1;
             updateLoginButton();
+            document.getElementById('accessCode').focus();
         }
         
         function updateLoginButton() {
@@ -736,49 +673,46 @@
             const accessCode = document.getElementById('accessCode').value.trim();
             const loginBtn = document.getElementById('loginBtn');
             
-            // Check if athlete exists in our list
             const athleteExists = athletesList.some(a => 
                 a.toLowerCase() === athleteName.toLowerCase()
             );
             
-            loginBtn.disabled = !(athleteName && accessCode && (athleteExists || athleteName.toLowerCase() === 'admin'));
+            loginBtn.disabled = !(athleteName && accessCode && athleteExists);
         }
         
         function login() {
             const athleteName = document.getElementById('athleteSearch').value.trim();
             const code = document.getElementById('accessCode').value.trim();
             
-            // Find exact match (case-insensitive)
             let exactMatch = athletesList.find(a => 
                 a.toLowerCase() === athleteName.toLowerCase()
             );
             
-            if (!exactMatch && athleteName.toLowerCase() !== 'admin') {
+            if (!exactMatch) {
                 alert('Athlete not found. Please select from the suggestions.');
                 return;
             }
             
-            // Check for Admin access
-            const isAdmin = athleteName.toLowerCase() === 'admin' || 
-                           exactMatch === 'Admin (View All)';
+            const isAdmin = exactMatch === 'Admin (View All)';
             
             if (isAdmin) {
-                if (accessCodes['Admin'] === code || accessCodes['ALL'] === code) {
+                if (accessCodes['Admin'] === code) {
                     currentAthlete = 'ALL';
                     showDashboard('Admin');
+                    return;
+                } else {
+                    alert('Invalid admin access code.');
                     return;
                 }
             }
             
-            // Check regular athlete access
-            const athleteKey = exactMatch || athleteName;
-            if (!accessCodes[athleteKey] || accessCodes[athleteKey] !== code) {
+            if (accessCodes[exactMatch] !== code) {
                 alert('Invalid access code. Please try again.');
                 return;
             }
             
-            currentAthlete = athleteKey;
-            showDashboard(athleteKey);
+            currentAthlete = exactMatch;
+            showDashboard(exactMatch);
         }
         
         function showDashboard(athlete) {
@@ -788,10 +722,8 @@
             document.getElementById('athleteName').textContent = 
                 athlete === 'Admin' ? 'Admin (All Athletes)' : athlete;
             
-            // Get data for this athlete
             const data = currentAthlete === 'ALL' ? allData : (athleteData[athlete] || []);
             
-            // Calculate stats
             let totalRoyalties = 0;
             let gameJerseys = 0;
             let otherItems = 0;
@@ -802,66 +734,64 @@
                 const royalty = parseFloat(row.final_royalty) || 0;
                 totalRoyalties += royalty;
                 
-                if (row.is_game_jersey === 'true' || row.is_game_jersey === true) {
+                const isGameJersey = row.is_game_jersey === true || 
+                                    row.is_game_jersey === 'true' || 
+                                    row.is_game_jersey === 1;
+                
+                if (isGameJersey) {
                     gameJerseys++;
                 } else {
                     otherItems++;
                 }
                 
-                if (row.has_jersey20 === 'true' || row.has_jersey20 === true) {
+                const hasJersey20 = row.has_jersey20 === true || 
+                                   row.has_jersey20 === 'true' || 
+                                   row.has_jersey20 === 1;
+                
+                if (hasJersey20) {
                     jersey20Count++;
                 }
                 
-                // Monthly grouping
                 const month = row.month_year || '2024-01';
-                if (!monthlyData[month]) {
-                    monthlyData[month] = 0;
-                }
-                monthlyData[month] += royalty;
+                monthlyData[month] = (monthlyData[month] || 0) + royalty;
             });
             
-            // Update stats
-            document.getElementById('totalRoyalties').textContent = `$${totalRoyalties.toFixed(0)}`;
+            document.getElementById('totalRoyalties').textContent = `$${Math.round(totalRoyalties)}`;
             document.getElementById('totalOrders').textContent = data.length;
             document.getElementById('gameJerseys').textContent = gameJerseys;
             document.getElementById('otherItems').textContent = otherItems;
             
-            // Show JERSEY20 alert if applicable
             if (jersey20Count > 0) {
                 document.getElementById('jersey20Alert').style.display = 'block';
-                document.getElementById('jersey20Count').textContent = `${jersey20Count}`;
+                document.getElementById('jersey20Count').textContent = jersey20Count;
             } else {
                 document.getElementById('jersey20Alert').style.display = 'none';
             }
             
-            // Create monthly chart
             const chartDiv = document.getElementById('monthChart');
             chartDiv.innerHTML = '';
             
             const months = Object.keys(monthlyData).sort();
             if (months.length > 0) {
-                const maxValue = Math.max(...Object.values(monthlyData));
+                const maxValue = Math.max(...Object.values(monthlyData), 1);
                 
                 months.forEach(month => {
                     const value = monthlyData[month];
-                    const height = maxValue > 0 ? (value / maxValue) * 250 : 20;
+                    const height = (value / maxValue) * 250;
                     
                     const bar = document.createElement('div');
                     bar.className = 'bar';
-                    bar.style.height = `${height}px`;
+                    bar.style.height = `${Math.max(height, 20)}px`;
                     bar.innerHTML = `
-                        <div class="bar-value">$${value.toFixed(0)}</div>
+                        <div class="bar-value">$${Math.round(value)}</div>
                         <div class="bar-label">${month}</div>
                     `;
                     chartDiv.appendChild(bar);
                 });
+            } else {
+                chartDiv.innerHTML = '<p style="text-align: center; color: #999;">No monthly data available</p>';
             }
             
-            // Populate orders table
-            const tbody = document.getElementById('ordersTable');
-            tbody.innerHTML = '';
-            
-            // Store data for table filtering
             window.tableData = data.slice().reverse();
             renderTable(window.tableData);
         }
@@ -871,22 +801,25 @@
             tbody.innerHTML = '';
             
             if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5">No orders found</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No orders found</td></tr>';
                 return;
             }
             
             data.forEach(row => {
                 const tr = document.createElement('tr');
-                const date = new Date(row.created_at);
-                const dateStr = date.toLocaleDateString();
+                const date = row.created_at ? new Date(row.created_at).toLocaleDateString() : 'N/A';
+                const productName = row.product_name || row.lineitem_name || 'Unknown Product';
+                
+                const hasJersey20 = row.has_jersey20 === true || 
+                                   row.has_jersey20 === 'true' || 
+                                   row.has_jersey20 === 1;
                 
                 tr.innerHTML = `
-                    <td>${row.order_number}</td>
-                    <td>${row.product_name || row.lineitem_name}</td>
-                    <td>${dateStr}</td>
-                    <td>${row.has_jersey20 === 'true' || row.has_jersey20 === true ? 
-                        '<span class="badge badge-warning">JERSEY20</span>' : '-'}</td>
-                    <td>$${row.final_royalty}</td>
+                    <td>${row.order_number || 'N/A'}</td>
+                    <td>${productName}</td>
+                    <td>${date}</td>
+                    <td>${hasJersey20 ? '<span class="badge badge-warning">JERSEY20</span>' : '-'}</td>
+                    <td>$${row.final_royalty || 0}</td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -901,9 +834,13 @@
             }
             
             const filtered = window.tableData.filter(row => {
-                return row.order_number.toLowerCase().includes(searchTerm) ||
-                       row.product_name.toLowerCase().includes(searchTerm) ||
-                       row.lineitem_name.toLowerCase().includes(searchTerm);
+                const orderNum = (row.order_number || '').toString().toLowerCase();
+                const productName = (row.product_name || '').toLowerCase();
+                const lineitemName = (row.lineitem_name || '').toLowerCase();
+                
+                return orderNum.includes(searchTerm) ||
+                       productName.includes(searchTerm) ||
+                       lineitemName.includes(searchTerm);
             });
             
             renderTable(filtered);
@@ -927,10 +864,13 @@
                 return;
             }
             
-            let csv = 'Order Number,Product,Date,Discount,Has JERSEY20,Royalty\n';
+            let csv = 'Order Number,Product,Date,Discount Code,Has JERSEY20,Royalty\n';
             data.forEach(row => {
-                const date = new Date(row.created_at).toLocaleDateString();
-                csv += `${row.order_number},"${row.product_name || row.lineitem_name}",${date},${row.discount_code},${row.has_jersey20},${row.final_royalty}\n`;
+                const date = row.created_at ? new Date(row.created_at).toLocaleDateString() : 'N/A';
+                const productName = (row.product_name || row.lineitem_name || '').replace(/"/g, '""');
+                const hasJersey20 = row.has_jersey20 === true || row.has_jersey20 === 'true' || row.has_jersey20 === 1;
+                
+                csv += `${row.order_number},"${productName}",${date},${row.discount_code || ''},${hasJersey20},${row.final_royalty}\n`;
             });
             
             const blob = new Blob([csv], { type: 'text/csv' });
